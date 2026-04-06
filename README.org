@@ -23,20 +23,20 @@ renames and restructuring.
 #+begin_src emacs-lisp
 (elpaca (org-stable-ids
          :host codeberg
-         :repo "11xx/org-stable-ids"))
+         :repo "useless-utils/org-stable-ids"))
 #+end_src
 
 ** straight.el
 #+begin_src emacs-lisp
 (straight-use-package '(org-stable-ids
                         :type git :host codeberg
-                        :repo "11xx/org-stable-ids"))
+                        :repo "useless-utils/org-stable-ids"))
 #+end_src
 
 ** use-package with :vc
 #+begin_src emacs-lisp
 (use-package org-stable-ids
-  :vc (:url "https://codeberg.org/11xx/org-stable-ids"))
+  :vc (:url "https://codeberg.org/useless-utils/org-stable-ids"))
 #+end_src
 
 * Usage
@@ -126,7 +126,7 @@ Transliteration is slug-oriented rather than linguistically exact.
 ;; Package-Requires: ((emacs "28.1") (org "9.6"))
 ;; Version: 20260406
 ;; Keywords: outlines, hypermedia, text
-;; URL: https://codeberg.org/11xx/org-stable-ids
+;; URL: https://codeberg.org/useless-utils/org-stable-ids
 
 ;;; Commentary:
 
@@ -150,7 +150,7 @@ Transliteration is slug-oriented rather than linguistically exact.
 ;; Example usage:
 ;;
 ;;    (use-package org-stable-ids
-;;      :vc (:url "https://codeberg.org/11xx/org-stable-ids")
+;;      :vc (:url "https://codeberg.org/useless-utils/org-stable-ids")
 ;;      :init
 ;;      (keymap-global-set "C-c o i" #'org-stable-ids-get-create)
 ;;      :config
@@ -171,7 +171,7 @@ Transliteration is slug-oriented rather than linguistically exact.
   "Stable, ASCII slug-based identifiers for Org headings and export."
   :group 'org-export
   :prefix "org-stable-ids-"
-  :link '(url-link :tag "Codeberg" "https://codeberg.org/11xx/org-stable-ids"))
+  :link '(url-link :tag "Codeberg" "https://codeberg.org/useless-utils/org-stable-ids"))
 
 (defun org-stable-ids--non-empty-string-p (s)
   "Return non-nil when S is a non-empty string."

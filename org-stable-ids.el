@@ -3,7 +3,7 @@
 ;; Package-Requires: ((emacs "28.1") (org "9.6"))
 ;; Version: 20260406
 ;; Keywords: outlines, hypermedia, text
-;; URL: https://codeberg.org/11xx/org-stable-ids
+;; URL: https://codeberg.org/useless-utils/org-stable-ids
 
 ;;; Commentary:
 
@@ -27,7 +27,7 @@
 ;; Example usage:
 ;;
 ;;    (use-package org-stable-ids
-;;      :vc (:url "https://codeberg.org/11xx/org-stable-ids")
+;;      :vc (:url "https://codeberg.org/useless-utils/org-stable-ids")
 ;;      :init
 ;;      (keymap-global-set "C-c o i" #'org-stable-ids-get-create)
 ;;      :config
@@ -48,7 +48,7 @@
   "Stable, ASCII slug-based identifiers for Org headings and export."
   :group 'org-export
   :prefix "org-stable-ids-"
-  :link '(url-link :tag "Codeberg" "https://codeberg.org/11xx/org-stable-ids"))
+  :link '(url-link :tag "Codeberg" "https://codeberg.org/useless-utils/org-stable-ids"))
 
 (defun org-stable-ids--non-empty-string-p (s)
   "Return non-nil when S is a non-empty string."
