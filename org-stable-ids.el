@@ -1,19 +1,23 @@
 ;;; org-stable-ids.el --- Human-readable ASCII slug IDs for Org headings and export  -*- lexical-binding: t; -*-
 
+;; Package-Requires: ((emacs "28.1") (org "9.6"))
+;; Version: 20260406
+;; Keywords: outlines, hypermedia, text
+;; URL: https://codeberg.org/11xx/org-stable-ids
+
 ;;; Commentary:
 
 ;; Provides two composable entry points:
 ;;
-;;   `org-stable-id-get-create'  — interactive command that assigns a
-;;     human-readable :CUSTOM_ID: to the heading at point, derived from
+;;   `org-stable-ids-get-create' — interactive command that assigns a
+;;     human-readable :CUSTOM_ID: to the current entry heading, derived from
 ;;     the heading title.  Collisions are resolved by prepending ancestor
 ;;     heading slugs (nearest first), then by a numeric suffix.
 ;;
-;;   `org-stable-ids-setup'      — activates an around-advice on
-;;     `org-export-get-reference' so that ox-html (and derived backends)
-;;     emit stable, ASCII slug-based fragment IDs that survive heading
-;;     renames and document restructuring.  Pre-existing :CUSTOM_ID:
-;;     values are honoured verbatim; <<targets>>, named tables, and
+;;   `org-stable-ids-enable' — activates an around-advice on
+;;     `org-export-get-reference' so that ox-html (and derived backends) emit
+;;     deterministic, readable, ASCII slug-based fragment IDs.  Pre-existing
+;;     :CUSTOM_ID: values are honoured verbatim; <<targets>>, named tables, and
 ;;     list-item targets are also handled.
 ;;
 ;; Slug generation transliterates selected Latin, Greek, and Cyrillic
@@ -22,12 +26,12 @@
 ;;
 ;; Example usage:
 ;;
-;;     (use-package org-stable-ids
-;;       :vc (:url "https://codeberg.org/11xx/org-stable-ids")
-;;       :init
-;;       (keymap-global-set "C-c o i" #'org-stable-id-get-create)
-;;       :config
-;;       (org-stable-ids-setup))
+;;    (use-package org-stable-ids
+;;      :vc (:url "https://codeberg.org/11xx/org-stable-ids")
+;;      :init
+;;      (keymap-global-set "C-c o i" #'org-stable-ids-get-create)
+;;      :config
+;;      (org-stable-ids-enable))
 
 ;;; Code:
 
@@ -44,25 +48,36 @@
   "Stable, ASCII slug-based identifiers for Org headings and export."
   :group 'org-export
   :prefix "org-stable-ids-"
-  :link '(url-link "https://example.com/org-stable-ids"))
+  :link '(url-link :tag "Codeberg" "https://codeberg.org/11xx/org-stable-ids"))
+
+(defun org-stable-ids--non-empty-string-p (s)
+  "Return non-nil when S is a non-empty string."
+  (and (stringp s) (not (string-empty-p s))))
 
 ;;;###autoload
 (defcustom org-stable-ids-separator "-"
   "Token separator used within generated slugs."
   :type 'string
   :group 'org-stable-ids
-  :safe #'stringp)
+  :safe #'org-stable-ids--non-empty-string-p)
 
 ;;;###autoload
 (defcustom org-stable-ids-ancestor-separator "--"
   "Separator between an ancestor prefix and the base slug during disambiguation."
   :type 'string
   :group 'org-stable-ids
-  :safe #'stringp)
+  :safe #'org-stable-ids--non-empty-string-p)
+
+;;;###autoload
+(defcustom org-stable-ids-store-link-after-create t
+  "When non-nil, call `org-store-link' after creating or retrieving a CUSTOM_ID."
+  :type 'boolean
+  :group 'org-stable-ids
+  :safe #'booleanp)
 
 ;;;###autoload
 (defcustom org-stable-ids-require-point-at-heading nil
-  "When non-nil, require point to be on a headline for `org-stable-id-get-create'.
+  "When non-nil, require point to be on a headline for `org-stable-ids-get-create'.
 
 When nil, the command operates on the current Org entry and may be
 invoked from anywhere within the entry subtree."
@@ -235,7 +250,7 @@ If no usable slug can be produced, return nil."
                                 (concat sep-re "+")
                                 (concat sep-re "+"))))
       (when (org-string-nw-p slug)
-        ;; handle when truncate at slug separator
+        ;; Trim separators again because truncation may end in a separator
         (setq slug (if (> (length slug) org-stable-ids-max-slug-length)
                        (substring slug 0 org-stable-ids-max-slug-length)
                      slug))
@@ -300,10 +315,11 @@ body entries, receive the same fragment identifier."
       final-id)))
 
 (defun org-stable-ids--ensure-command-entry ()
-  "Signal a `user-error' when `org-stable-id-get-create' has no valid entry.
+  "Signal a `user-error' when `org-stable-ids-get-create' has no valid entry.
 
 When `org-stable-ids-require-point-at-heading' is non-nil, point must
-already be on a headline."
+already be on a headline.  Otherwise, point may be anywhere within the
+current Org entry subtree."
   (if org-stable-ids-require-point-at-heading
       (unless (org-at-heading-p)
         (user-error "Point is not on an Org heading"))
@@ -324,8 +340,8 @@ already be on a headline."
     tbl))
 
 ;;;###autoload
-(defun org-stable-id-get-create (&optional force)
-  "Get or create a slug-based :CUSTOM_ID: for the current heading.
+(defun org-stable-ids-get-create (&optional force)
+  "Get or create a slug :CUSTOM_ID: for the current entry heading.
 
 With universal prefix argument FORCE non-nil, always regenerate the
 identifier even if one already exists.
@@ -344,7 +360,8 @@ This command does not register entries in `org-id-locations';
         (setq result
               (if (and (not force) (org-string-nw-p current-id))
                   (progn
-                    (org-store-link nil t)
+                    (when org-stable-ids-store-link-after-create
+                      (org-store-link nil t))
                     current-id)
                 (let* ((base      (or (org-stable-ids--slugify heading)
                                       (format "heading-%s"
@@ -356,7 +373,8 @@ This command does not register entries in `org-id-locations';
                                     tbl))
                        (new-id    (org-stable-ids--resolve base ancestors used-tbl)))
                   (org-set-property "CUSTOM_ID" new-id)
-                  (org-store-link nil t)
+                  (when org-stable-ids-store-link-after-create
+                    (org-store-link nil t))
                   new-id)))))
     (when result
       (message "CUSTOM_ID: %s" result))
@@ -443,7 +461,7 @@ Dispatch by element type:
 ;;;; Setup / teardown
 
 ;;;###autoload
-(defun org-stable-ids-setup ()
+(defun org-stable-ids-enable ()
   "Activate the stable-ID export advice and pre-export reset hook.
 
 Call this from a `with-eval-after-load' block for `ox' so that
@@ -451,17 +469,21 @@ the export library is guaranteed to be available."
   (require 'ox)
   (add-hook 'org-export-before-processing-functions
             #'org-stable-ids--export-reset)
-  (advice-add 'org-export-get-reference
-              :around #'org-stable-ids--get-reference
-              '((depth . -95))))
+  (unless (advice-member-p #'org-stable-ids--get-reference
+                           'org-export-get-reference)
+    (advice-add 'org-export-get-reference
+                :around #'org-stable-ids--get-reference
+                '((depth . -95)))))
 
 ;;;###autoload
-(defun org-stable-ids-teardown ()
+(defun org-stable-ids-disable ()
   "Deactivate the stable-ID export advice and pre-export reset hook."
   (remove-hook 'org-export-before-processing-functions
                #'org-stable-ids--export-reset)
   (advice-remove 'org-export-get-reference
-                 #'org-stable-ids--get-reference))
+                 #'org-stable-ids--get-reference)
+  (setq org-stable-ids--used nil
+        org-stable-ids--cache nil))
 
 (provide 'org-stable-ids)
 ;;; org-stable-ids.el ends here
