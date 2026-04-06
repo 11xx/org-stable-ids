@@ -61,6 +61,16 @@
   :safe #'stringp)
 
 ;;;###autoload
+(defcustom org-stable-ids-require-point-at-heading nil
+  "When non-nil, require point to be on a headline for `org-stable-id-get-create'.
+
+When nil, the command operates on the current Org entry and may be
+invoked from anywhere within the entry subtree."
+  :type 'boolean
+  :group 'org-stable-ids
+  :safe #'booleanp)
+
+;;;###autoload
 (defcustom org-stable-ids-max-slug-length 60
   "Maximum character count for a generated slug; longer slugs are truncated."
   :type 'natnum
@@ -225,9 +235,12 @@ If no usable slug can be produced, return nil."
                                 (concat sep-re "+")
                                 (concat sep-re "+"))))
       (when (org-string-nw-p slug)
-        (if (> (length slug) org-stable-ids-max-slug-length)
-            (substring slug 0 org-stable-ids-max-slug-length)
-          slug)))))
+        ;; handle when truncate at slug separator
+        (setq slug (if (> (length slug) org-stable-ids-max-slug-length)
+                       (substring slug 0 org-stable-ids-max-slug-length)
+                     slug))
+        (setq slug (string-trim slug (concat sep-re "+") (concat sep-re "+")))
+        (and (org-string-nw-p slug) slug)))))
 
 ;;;; Stage 2 — Ancestor traversal (pure)
 
@@ -286,6 +299,21 @@ body entries, receive the same fragment identifier."
         (puthash cache-key final-id cache-table))
       final-id)))
 
+(defun org-stable-ids--ensure-command-entry ()
+  "Ensure that `org-stable-id-get-create' is operating on a valid entry.
+
+When `org-stable-ids-require-point-at-heading' is nil, move point to the current
+entry headline using Org's standard entry navigation.  When it is
+non-nil, require point to already be on a headline.  Signal a
+`user-error' when no suitable headline is available."
+  (if org-stable-ids-require-point-at-heading
+      (unless (org-at-heading-p)
+        (user-error "Point is not on an Org heading"))
+    (condition-case nil
+        (org-back-to-heading t)
+      (error
+       (user-error "Point is not inside an Org heading")))))
+
 ;;;; Stage 4a — Interactive :CUSTOM_ID: assignment
 
 (defun org-stable-ids--buffer-used-table ()
@@ -299,7 +327,7 @@ body entries, receive the same fragment identifier."
 
 ;;;###autoload
 (defun org-stable-id-get-create (&optional force)
-  "Get or create a slug-based :CUSTOM_ID: for the heading at point.
+  "Get or create a slug-based :CUSTOM_ID: for the current heading.
 
 With a universal prefix argument FORCE non-nil, always regenerate the
 identifier even if one already exists.
@@ -310,9 +338,8 @@ prepending ancestor slugs, nearest first, and then by a numeric suffix.
 This command does not register entries in `org-id-locations';
 `org-store-link' already handles :CUSTOM_ID: links natively."
   (interactive "P")
-  (unless (org-at-heading-p)
-    (user-error "Point is not on an Org heading"))
-  (let* ((heading    (nth 4 (org-heading-components)))
+  (org-stable-ids--ensure-command-entry)
+  (let* ((heading    (org-get-heading t t t t))
          (current-id (org-entry-get nil "CUSTOM_ID")))
     (if (and (not force) (org-string-nw-p current-id))
         (progn
@@ -327,7 +354,7 @@ This command does not register entries in `org-id-locations';
                             (remhash current-id tbl))
                           tbl))
              (new-id    (org-stable-ids--resolve base ancestors used-tbl)))
-        (org-entry-put nil "CUSTOM_ID" new-id)
+        (org-set-property "CUSTOM_ID" new-id)
         (org-store-link nil t)
         (message "CUSTOM_ID: %s" new-id)
         new-id))))
