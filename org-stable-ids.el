@@ -300,12 +300,10 @@ body entries, receive the same fragment identifier."
       final-id)))
 
 (defun org-stable-ids--ensure-command-entry ()
-  "Ensure that `org-stable-id-get-create' is operating on a valid entry.
+  "Signal a `user-error' when `org-stable-id-get-create' has no valid entry.
 
-When `org-stable-ids-require-point-at-heading' is nil, move point to the current
-entry headline using Org's standard entry navigation.  When it is
-non-nil, require point to already be on a headline.  Signal a
-`user-error' when no suitable headline is available."
+When `org-stable-ids-require-point-at-heading' is non-nil, point must
+already be on a headline."
   (if org-stable-ids-require-point-at-heading
       (unless (org-at-heading-p)
         (user-error "Point is not on an Org heading"))
@@ -317,11 +315,11 @@ non-nil, require point to already be on a headline.  Signal a
 ;;;; Stage 4a — Interactive :CUSTOM_ID: assignment
 
 (defun org-stable-ids--buffer-used-table ()
-  "Return a hash-table of all :CUSTOM_ID: values in the current buffer."
+  "Return a hash table of all :CUSTOM_ID: values in the current buffer."
   (let ((tbl (make-hash-table :test #'equal)))
     (org-map-entries
      (lambda ()
-       (when-let* ((id (org-entry-get (point) "CUSTOM_ID")))
+       (when-let* ((id (org-entry-get nil "CUSTOM_ID")))
          (puthash id t tbl))))
     tbl))
 
@@ -329,7 +327,7 @@ non-nil, require point to already be on a headline.  Signal a
 (defun org-stable-id-get-create (&optional force)
   "Get or create a slug-based :CUSTOM_ID: for the current heading.
 
-With a universal prefix argument FORCE non-nil, always regenerate the
+With universal prefix argument FORCE non-nil, always regenerate the
 identifier even if one already exists.
 
 The slug derives from the heading title.  Collisions are resolved by
@@ -338,26 +336,31 @@ prepending ancestor slugs, nearest first, and then by a numeric suffix.
 This command does not register entries in `org-id-locations';
 `org-store-link' already handles :CUSTOM_ID: links natively."
   (interactive "P")
-  (org-stable-ids--ensure-command-entry)
-  (let* ((heading    (org-get-heading t t t t))
-         (current-id (org-entry-get nil "CUSTOM_ID")))
-    (if (and (not force) (org-string-nw-p current-id))
-        (progn
-          (org-store-link nil t)
-          current-id)
-      (let* ((base      (or (org-stable-ids--slugify heading)
-                            (format "heading-%s"
-                                    (substring (md5 (or heading "")) 0 6))))
-             (ancestors (nreverse (org-get-outline-path)))
-             (used-tbl  (let ((tbl (org-stable-ids--buffer-used-table)))
-                          (when (org-string-nw-p current-id)
-                            (remhash current-id tbl))
-                          tbl))
-             (new-id    (org-stable-ids--resolve base ancestors used-tbl)))
-        (org-set-property "CUSTOM_ID" new-id)
-        (org-store-link nil t)
-        (message "CUSTOM_ID: %s" new-id)
-        new-id))))
+  (let (result)
+    (save-excursion
+      (org-stable-ids--ensure-command-entry)
+      (let* ((heading    (org-get-heading t t t t))
+             (current-id (org-entry-get nil "CUSTOM_ID")))
+        (setq result
+              (if (and (not force) (org-string-nw-p current-id))
+                  (progn
+                    (org-store-link nil t)
+                    current-id)
+                (let* ((base      (or (org-stable-ids--slugify heading)
+                                      (format "heading-%s"
+                                              (substring (md5 (or heading "")) 0 6))))
+                       (ancestors (nreverse (org-get-outline-path)))
+                       (used-tbl  (let ((tbl (org-stable-ids--buffer-used-table)))
+                                    (when (org-string-nw-p current-id)
+                                      (remhash current-id tbl))
+                                    tbl))
+                       (new-id    (org-stable-ids--resolve base ancestors used-tbl)))
+                  (org-set-property "CUSTOM_ID" new-id)
+                  (org-store-link nil t)
+                  new-id)))))
+    (when result
+      (message "CUSTOM_ID: %s" result))
+    result))
 
 ;;;; Stage 4b — Export stable-ID advice
 
