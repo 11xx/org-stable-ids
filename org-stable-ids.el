@@ -1,7 +1,7 @@
 ;;; org-stable-ids.el --- Human-readable ASCII slug IDs for Org headings and export  -*- lexical-binding: t; -*-
 
 ;; Package-Requires: ((emacs "28.1") (org "9.6"))
-;; Version: 20260406
+;; Version: 2026.4.22
 ;; Keywords: outlines, hypermedia, text
 ;; URL: https://codeberg.org/useless-utils/org-stable-ids
 
