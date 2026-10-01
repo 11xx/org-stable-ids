@@ -217,7 +217,10 @@ with `org-stable-ids-separator'."
   (when (stringp s)
     (setq s (downcase s))
     (setq s (ucs-normalize-NFD-string s))
-    (setq s (replace-regexp-in-string org-stable-ids--combining-marks-re "" s))
+    ;; Case folding would let the mark range match a letter whose case
+    ;; variant is a combining mark: U+0345 folds to ι (iota).
+    (let ((case-fold-search nil))
+      (setq s (replace-regexp-in-string org-stable-ids--combining-marks-re "" s)))
     (org-stable-ids--replace-chars-from-ascii-table s)))
 
 (defun org-stable-ids--slugify (s)
