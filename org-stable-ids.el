@@ -272,12 +272,6 @@ Relies on `:parent' links being set — available during export tree traversal."
         (push (org-element-property :raw-value cur) acc)))
     (nreverse acc)))
 
-(defun org-stable-ids--cache-key (datum)
-  "Return a path string uniquely identifying headline DATUM within its tree."
-  (let ((ancestors (org-stable-ids--ancestors-from-element datum))
-        (title     (or (org-element-property :raw-value datum) "")))
-    (mapconcat #'identity (append ancestors (list title)) "/")))
-
 ;;;; Stage 3 — Disambiguation (stateful against a hash-table)
 
 (defun org-stable-ids--resolve (base-id ancestors used-table
@@ -288,8 +282,8 @@ ANCESTORS is a list of heading strings ordered nearest-first and is used
 for contextual disambiguation before falling back to numeric suffixes.
 
 CACHE-TABLE and CACHE-KEY enable consistent re-resolution so that
-multiple export calls for the same logical heading, such as TOC and
-body entries, receive the same fragment identifier."
+every export call for the same element, such as its TOC entry, the
+links to it and its own anchor, receives the same fragment identifier."
   (cl-block nil
     (when (and cache-table cache-key)
       (when-let* ((hit (gethash cache-key cache-table)))
@@ -389,13 +383,13 @@ This command does not register entries in `org-id-locations';
   "Hash-table tracking IDs generated during the current export pass.")
 
 (defvar org-stable-ids--cache nil
-  "Hash-table mapping headline cache-keys to resolved IDs for the current export.")
+  "Hash-table mapping exported elements to resolved IDs for the current export.")
 
 (defun org-stable-ids--export-reset (&rest _)
   "Reset per-export ID tables.
 This function is intended for `org-export-before-processing-functions'."
   (setq org-stable-ids--used  (make-hash-table :test #'equal)
-        org-stable-ids--cache (make-hash-table :test #'equal)))
+        org-stable-ids--cache (make-hash-table :test #'eq)))
 
 (defun org-stable-ids--first-target (item info)
   "Return the first target or radio-target inside list ITEM, or nil."
@@ -424,7 +418,7 @@ Dispatch by element type:
             (org-stable-ids--ancestors-from-element datum)
             org-stable-ids--used
             org-stable-ids--cache
-            (org-stable-ids--cache-key datum))
+            datum)
          (funcall orig datum info))))
 
     ((or 'target 'radio-target)
@@ -435,7 +429,9 @@ Dispatch by element type:
            (org-stable-ids--resolve
             base
             (org-stable-ids--ancestors-from-element datum)
-            org-stable-ids--used)
+            org-stable-ids--used
+            org-stable-ids--cache
+            datum)
          (funcall orig datum info))))
 
     ('item
@@ -446,7 +442,9 @@ Dispatch by element type:
          (org-stable-ids--resolve
           base
           (org-stable-ids--ancestors-from-element datum)
-          org-stable-ids--used)
+          org-stable-ids--used
+          org-stable-ids--cache
+          datum)
        (funcall orig datum info)))
 
     ('table
@@ -455,7 +453,9 @@ Dispatch by element type:
          (org-stable-ids--resolve
           base
           (org-stable-ids--ancestors-from-element datum)
-          org-stable-ids--used)
+          org-stable-ids--used
+          org-stable-ids--cache
+          datum)
        (funcall orig datum info)))
 
     (_
