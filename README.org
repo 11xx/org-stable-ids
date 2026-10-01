@@ -1,119 +1,67 @@
 #+title: org-stable-ids
 
-Stable ASCII slug IDs for Org headings and export.
+Readable ASCII slug IDs for Org headings and export anchors.
 
-This package provides two composable entry points:
+Org export gives headings generated anchors such as =#org3f2a9c1=.  They do
+not describe the heading, so a link into the exported page cannot be
+written by hand.
 
-- =org-stable-ids-get-create= assigns a human-readable =:CUSTOM_ID:= to the current
-  entry heading, derived from the heading title.
-- =org-stable-ids-enable= advises =org-export-get-reference= so exported fragment
-  identifiers become stable, readable, and ASCII slugs.
+org-stable-ids derives IDs from the text instead.  Its export advice gives
+headlines, =<<targets>>=, radio targets, list items holding a target, and
+named tables a slug of their title or name; other elements keep Org's
+default reference.  An existing =:CUSTOM_ID:= becomes the anchor as
+written, so a section keeps its anchor through renames once it has one.
+=org-stable-ids-get-create= writes that =:CUSTOM_ID:= for the heading at
+point.
 
-Existing =:CUSTOM_ID:= values are respected verbatim.  Generated slugs are
-lowercase, transliterated toward ASCII, and normalized by replacing runs of
-non-alphanumeric characters with a separator.
+Slugs are lowercase ASCII.  Diacritics are stripped and selected Latin,
+Greek and Cyrillic letters are transliterated.  A slug that collides with
+another is prefixed with an ancestor heading's slug, nearest first, and
+failing that gets a numeric suffix.
 
-Generated export references are deterministic for a given document structure
-and content.  Explicit =:CUSTOM_ID:= values remain unchanged across heading
-renames and restructuring.
+* Install
 
-* Installation
+Requires Emacs 28.1 and Org 9.6; the =:vc= keyword needs Emacs 30.
 
-** Elpaca
-#+begin_src emacs-lisp
-(elpaca (org-stable-ids
-         :host codeberg
-         :repo "useless-utils/org-stable-ids"))
-#+end_src
-
-** straight.el
-#+begin_src emacs-lisp
-(straight-use-package '(org-stable-ids
-                        :type git :host codeberg
-                        :repo "useless-utils/org-stable-ids"))
-#+end_src
-
-** use-package with :vc
 #+begin_src emacs-lisp
 (use-package org-stable-ids
-  :vc (:url "https://codeberg.org/useless-utils/org-stable-ids"))
+  :vc (:url "https://github.com/11xx/org-stable-ids"))
 #+end_src
 
-* Usage
+With Elpaca, =(elpaca (org-stable-ids :host github :repo "11xx/org-stable-ids"))=;
+with straight.el, =(straight-use-package '(org-stable-ids :host github :repo "11xx/org-stable-ids"))=.
 
-- =org-stable-ids-get-create= assigns a human-readable =:CUSTOM_ID:= to the current
-  entry heading, derived from the heading title.
-  : M-x org-stable-ids-get-create
+* Use
 
-  By default, point may be anywhere within the current subtree.  If
-  =org-stable-ids-require-point-at-heading= is non-nil, point must be on the
-  heading line itself.  If the heading already has a =:CUSTOM_ID:=, it is
-  returned unchanged.
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-c o i") #'org-stable-ids-get-create) ; :CUSTOM_ID: for this heading
+(with-eval-after-load 'ox
+  (org-stable-ids-enable))                                    ; slug anchors in every export
+#+end_src
 
-  With a prefix argument, regenerate it.
+=org-stable-ids-get-create= works from anywhere in the entry, returns an
+existing =:CUSTOM_ID:= unchanged, and regenerates it with a prefix argument.
+By default it also stores an Org link to the heading.
+=org-stable-ids-disable= removes the export advice.
 
-- Enable stable export references
-  : (org-stable-ids-enable)
-
-- To remove the advice and hook:
-  : (org-stable-ids-disable)
-
-** Examples
 #+begin_example
 Crème brûlée        -> creme-brulee
 ação à pé           -> acao-a-pe
 zażółć gęślą jaźń   -> zazolc-gesla-jazn
 Привет мир          -> privet-mir
-γειά σου            -> geia-soy
 init.el             -> init-el
 #+end_example
 
-* How it works
-
-Slug generation:
-
-1. lowercases the input
-2. normalizes to Unicode NFD
-3. removes combining diacritical marks
-4. transliterates selected Latin, Greek, and Cyrillic characters toward ASCII
-5. replaces runs of non-alphanumeric characters with =org-stable-ids-separator=
-6. trims and collapses repeated separators
-7. truncates the result if needed
-
-When a slug collides with an existing one, ancestor heading slugs are
-tried first.  If needed, a numeric suffix is appended.
-
-During export, the package handles:
-
-- headlines
-- =<<targets>>= and radio targets
-- list items with embedded targets
-- named tables
-
-Other elements fall back to Org’s default reference generation.
-
-* Customization
-
-- =org-stable-ids-separator=
-- =org-stable-ids-ancestor-separator=
-- =org-stable-ids-max-slug-length=
-- =org-stable-ids-store-link-after-create=
-- =org-stable-ids-require-point-at-heading=
-
-* Notes
-
-This package does not register entries in =org-id-locations=.  =:CUSTOM_ID:= links
-are already handled natively by =org-store-link=, which =org-stable-ids-get-create=
-can optionally invoke after retrieving or creating an ID.
-
-Transliteration is slug-oriented rather than linguistically exact.
-
-- :ID: vs :CUSTOM_ID:
-  + [[https://emacs.stackexchange.com/questions/46176/confused-by-property-id-versus-custom-id][org mode - Confused by property :ID: versus :CUSTOM_ID: - Emacs Stack Exchange]]
+Options are in =M-x customize-group RET org-stable-ids=.
 
 * Credits
-- [[https://zzamboni.org/post/how-to-easily-create-and-use-human-readable-ids-in-org-mode-and-doom-emacs/][zzamboni.org | How to easily create and use human-readable IDs in Org mode and Doom Emacs]]
-- [[https://codeberg.org/jkreeftmeijer/ox-html-stable-ids.el][jkreeftmeijer/ox-html-stable-ids.el: Stable IDs for ox-html.el - Codeberg.org]]
+
+- [[https://zzamboni.org/post/how-to-easily-create-and-use-human-readable-ids-in-org-mode-and-doom-emacs/][How to easily create and use human-readable IDs in Org mode and Doom Emacs]] (zzamboni.org)
+- [[https://codeberg.org/jkreeftmeijer/ox-html-stable-ids.el][ox-html-stable-ids.el]]
+
+* License
+
+Public domain; see [[file:UNLICENSE][UNLICENSE]].
 
 * org-stable-ids.el                                                :noexport:
 :PROPERTIES:
@@ -121,12 +69,12 @@ Transliteration is slug-oriented rather than linguistically exact.
 :END:
 
 #+begin_src emacs-lisp
-;;; org-stable-ids.el --- Human-readable ASCII slug IDs for Org headings and export  -*- lexical-binding: t -*-
+;;; org-stable-ids.el --- Human-readable ASCII slug IDs for Org headings and export  -*- lexical-binding: t; -*-
 
 ;; Package-Requires: ((emacs "28.1") (org "9.6"))
-;; Version: 20260406
+;; Version: 2026.4.22
 ;; Keywords: outlines, hypermedia, text
-;; URL: https://codeberg.org/useless-utils/org-stable-ids
+;; URL: https://github.com/11xx/org-stable-ids
 
 ;;; Commentary:
 
@@ -150,7 +98,7 @@ Transliteration is slug-oriented rather than linguistically exact.
 ;; Example usage:
 ;;
 ;;    (use-package org-stable-ids
-;;      :vc (:url "https://codeberg.org/useless-utils/org-stable-ids")
+;;      :vc (:url "https://github.com/11xx/org-stable-ids")
 ;;      :init
 ;;      (keymap-global-set "C-c o i" #'org-stable-ids-get-create)
 ;;      :config
@@ -171,7 +119,7 @@ Transliteration is slug-oriented rather than linguistically exact.
   "Stable, ASCII slug-based identifiers for Org headings and export."
   :group 'org-export
   :prefix "org-stable-ids-"
-  :link '(url-link :tag "Codeberg" "https://codeberg.org/useless-utils/org-stable-ids"))
+  :link '(url-link :tag "GitHub" "https://github.com/11xx/org-stable-ids"))
 
 (defun org-stable-ids--non-empty-string-p (s)
   "Return non-nil when S is a non-empty string."
